@@ -61,24 +61,6 @@ testreal<-Real_Estate[277:414,]
 
 
 ```{r}
-library(MASS)
-creal = Real_Estate[,2:9]
-pcreal<-prcomp(creal)
-names(pcreal)
-summary(pcreal)
-#From the summary, we can see that PC1 already counts for 99.85%, thus it's enough.
-round(pcreal$rot[,1],2)
-pcrealr<-prcomp(creal,scale=TRUE)
-summary(pcrealr)
-#After re-scale the modle, we can see that PC5 is the level we want since it has a cumulative proportion of 93.36%.
-round(pcrealr$rot[,1],2)
-round(pcrealr$rot[,2],2)
-t(pcrealr$rot[,2])%*%pcrealr$rot[,1]
-#The result for this is 0
-```
-
-
-```{r}
 hist(Real_Estate$Age)
 hist(Real_Estate$Distance)
 
@@ -93,7 +75,9 @@ hist(Real_Estate$Longitude)
 
 hist(Real_Estate$Price)
 hist(Real_Estate$Trans_Year)
-hist(Real_Estate$Trans_Month)
+library(ggplot2)
+ggplot(Real_Estate,aes(x=Trans_Month))+
+  geom_bar()
 
 ```
 **Based on the graph, we can see that other than Latitude and Price,all other predictors are clearly not normally distributed.Some transformation are necessary for future models.**
@@ -101,15 +85,6 @@ hist(Real_Estate$Trans_Month)
 full_1 = lm(Price~.,data = trainreal)
 summary(full_1)
 ```
-
-```{r}
-sigreal<-cov.rob(creal)
-mdist<-mahalanobis(creal,center=sigreal$center, cov=sigreal$cov)
-n<-dim(creal)[1]
-p<-dim(creal)[2]
-quant.mdist<-qchisq(1:n/(n+1),p)
-```
-
 
 ```{r}
 #plot(quant.mdist,sort(mdist)); abline(0,1)
@@ -126,7 +101,7 @@ summary(full_1)$r.sq
 rmse<-function(x,y) sqrt(mean((x-y)^2))
 # RMSE for training set and testing set
 rmse(fitted(full_1), trainreal$Price)
-rmse(predict(full_1,testreal),testreal$Price)
+rmse(predict(full_1),testreal$Price)
 ```
 **Based on the shape of the plot, we tried 1/Longitude as the transformation and form full_2.**
 ```{r}
@@ -198,6 +173,9 @@ prediction_2 = predict(model_2,normalized_testreal)
 head(prediction_2)
 error_2 = (mean(normalized_testreal$Price-prediction_2))^2
 error_2
+```
+```{r}
+
 ```
 
 ```{r}
