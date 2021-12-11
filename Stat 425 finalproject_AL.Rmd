@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 ***For Q3.1 & 3.2***
 
@@ -44,17 +46,20 @@ Real_Estate = real %>%
 
 
 ```{r}
-trainreal<-Real_Estate[1:276,]
-testreal<-Real_Estate[277:414,]
-```
-**We use the first 2/3 of the dataset as the training data and the remaining 1/3 as the test dataset.**
-
-```{r}
 round(cor(real),2)
 pairs(real)
 plot(real$Price)
 ```
 **Using the correlation coefficient matrix and the pair-wise matrix to check the linear relationship between the outcome variable and the independent variables.**
+
+
+```{r}
+trainreal<-Real_Estate[1:276,]
+testreal<-Real_Estate[277:414,]
+```
+**We use the first 2/3 of the dataset as the training data and the remaining 1/3 as the test dataset.**
+
+
 ```{r}
 library(MASS)
 creal = Real_Estate[,2:9]
@@ -72,6 +77,7 @@ t(pcrealr$rot[,2])%*%pcrealr$rot[,1]
 #The result for this is 0
 ```
 
+
 ```{r}
 hist(Real_Estate$Age)
 hist(Real_Estate$Distance)
@@ -88,8 +94,14 @@ hist(Real_Estate$Longitude)
 hist(Real_Estate$Price)
 hist(Real_Estate$Trans_Year)
 hist(Real_Estate$Trans_Month)
+
 ```
 **Based on the graph, we can see that other than Latitude and Price,all other predictors are clearly not normally distributed.Some transformation are necessary for future models.**
+```{r}
+full_1 = lm(Price~.,data = trainreal)
+summary(full_1)
+```
+
 ```{r}
 sigreal<-cov.rob(creal)
 mdist<-mahalanobis(creal,center=sigreal$center, cov=sigreal$cov)
@@ -100,17 +112,14 @@ quant.mdist<-qchisq(1:n/(n+1),p)
 
 
 ```{r}
-plot(quant.mdist,sort(mdist)); abline(0,1)
+#plot(quant.mdist,sort(mdist)); abline(0,1)
 plot(cooks.distance(full_1))
 #From the cook's distance and Mahalanobis distance, we can see there is no high-leverage points
 
 ```
 **Here we use the MASS package to estimate the covariance matrix, calculate the Mahalanobis distance to detect outliers, which pcr is very sensitive to.**
 **Use all remaining predictors with the training dataset, and name that model full_1.**
-```{r}
-full_1 = lm(Price~.,data = Real_Estate)
-summary(full_1)
-```
+
 
 ```{r}
 summary(full_1)$r.sq
@@ -121,13 +130,13 @@ rmse(predict(full_1,testreal),testreal$Price)
 ```
 **Based on the shape of the plot, we tried 1/Longitude as the transformation and form full_2.**
 ```{r}
-full_2 = lm(Price~Date+Age+Distance+Stores+Latitude+(1/(Longitude))+Trans_Month, data=Real_Estate)
+full_2 = lm(Price~Date+Age+Distance+Stores+Latitude+(1/(Longitude))+Trans_Month, data=trainreal)
 drop1(full_2,test = 'F')
 ```
 **From this we can see that the Trans_month has the lowest F-value, also, it's a value derived from the transaction date. Thus we can remove it and form model_1.**
 
 ```{r}
-model_1 = lm(Price~Date+Age+Distance+Stores+Latitude+(1/(Longitude)), data=Real_Estate)
+model_1 = lm(Price~Date+Age+Distance+Stores+Latitude+(1/(Longitude)), data=trainreal)
 summary(model_1)
 #From the summary, we can see that all predictors are statistically significant. We'll conduct model check.
 ```
@@ -157,9 +166,16 @@ step(model_1,data = Real_Estate, direction = 'both')
 normalized_real = as.data.frame(scale(Real_Estate[1:7],center = TRUE, scale = TRUE))
 head(normalized_real,10)
 ```
+
+```{r}
+normalized_trainreal<-normalized_real[1:276,]
+normalized_testreal<-normalized_real[277:414,]
+```
+**We use the first 2/3 of the dataset as the training data and the remaining 1/3 as the test dataset.**
+
 ```{r}
 #Re-fit the model_1 with the new data, and name it as model_2
-model_2 = lm(Price ~ Date + Age + Distance + Stores + Latitude + (1/(Longitude)),data = normalized_real)
+model_2 = lm(Price ~ Date + Age + Distance + Stores + Latitude + (1/(Longitude)),data = normalized_trainreal)
 summary(model_2)
 ```
 
@@ -173,4 +189,36 @@ durbinWatsonTest(model_2)
 #P-value is 0.422 for D-W test, meaning we fail to reject the H0 that there is no correlation among the residuals.
 ```
 
+
+```{r}
+prediction_1 = predict(model_1,testreal)
+error_1 = (mean(testreal$Price-prediction_1))^2
+error_1
+prediction_2 = predict(model_2,normalized_testreal)
+head(prediction_2)
+error_2 = (mean(normalized_testreal$Price-prediction_2))^2
+error_2
+```
+
+```{r}
+library(pls)
+variable=creal[,-7]
+
+prseat<-prcomp(variable,scale=TRUE)
+summary(prseat)
+plot(prseat$sdev,type="l",ylab="SD of PC",xlab="PC number")
+round(prseat$rot[,1],2)
+round(prseat$rot[,2],2)
+round(prseat$rot[,3],2)
+round(prseat$rot[,4],2)
+round(prseat$rot[,5],2)
+pcr1<-pcr(Price~.,data=normalized_trainreal)
+pcrpred1pos<-predict(pcr1,normalized_trainreal,ncomp=5)
+head(pcrpred1pos)
+
+MSE_testingPCR=mean((normalized_testreal$Price - pcrpred1pos) ^ 2)
+MSE_test_original=mean((normalized_testreal$Price - predict(model_2, normalized_testreal)) ^ 2)
+MSE_testingPCR
+MSE_test_original
+```
 
