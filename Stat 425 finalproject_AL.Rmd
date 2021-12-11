@@ -1,30 +1,58 @@
 ---
-title: "R Notebook"
+title: "STAT 425 Final Project"
+author: "Fall 2021, Ted Chen, "
+date: '11/28/21'
 output:
   html_document:
     df_print: paged
+    theme: readable
+    toc: yes
 ---
-***For Q3.1 & 3.2***
 
-**Here we import the original file with changed column names. We see that there is no missing values. Then, we use the str and summary to get a quick overview of the dataset.**
-```{r}
+## Packages
+
+```{r, message=FALSE}
 library(dplyr)
 library(tidyverse)
 library(ggplot2)
 library(stringr)
-real = Real_estate_valuation_data_set_Rename_
-names(real)
+library(readxl)
+library(PerformanceAnalytics)
+set.seed(425)
+```
+
+## Exploratory Data Analysis
+
+### Data Overview
+Here we import the original file with changed column names. 
+
+We see that there is no missing values. Then, we use the `str()` and `summary()` to get a quick overview of the dataset.
+```{r}
+real <- read_excel("real_estate.xlsx")
 sum(is.null(real))
 str(real)
 summary(real)
 ```
 
-**We will create a new column called month with input value derived from the transaction date column, and use that as the 7th predictor. However, we notice an inconsistency between the data description and the actual calculation.**
+From description, the unit used for unit area aren't used in U.S., so we change it first for easier interpretation in the later step. Since the number of the house has no specific meaning, we exclude it from the prediction model.
 ```{r}
 real$Price <- real$Price*0.042*1/3/3*1000
 real <- real[,-c(1)]
 ```
-**According to the description, the unit used for unit area aren't used in U.S., so we decided to change it first for easier interpretation in the later steps. Also, since the number of the house is merely a number with no specific meaning, we will exclude that from the prediction model**
+
+### Correlation
+
+```{r}
+round(cor(real[, -c(1)]),2)
+chart.Correlation(real, histogram = TRUE, pch = 10)
+```
+
+We notice that only variables `Latitude` and `Price` seem to follow a normal distribution and the highest correlation between individual predictor and response variable is -0.67.
+
+## Data preprocessing
+
+### New Variable `Trans_Year` and `Trans_Month`
+We create new column `Trans_Year` and `Trans_Month` with input value derived from the transaction date column, and use that as the 7th predictor. However, we notice an inconsistency between the data description and the actual calculation.
 ```{r}
 Real_Estate = real %>%
   mutate(Trans_Month = round((Date - floor(Date)), digits = 3)) %>%
@@ -44,43 +72,17 @@ Real_Estate = real %>%
   mutate(Trans_Year = floor(Date))
 ```
 
+### Training-Testing Dataset
 
+We split the raw dataset to be 70% of training data and 30% of testing data.
 ```{r}
-round(cor(real),2)
-pairs(real)
-plot(real$Price)
+index = sort(sample(nrow(Real_Estate), nrow(Real_Estate)*0.7))
+trainreal = Real_Estate[index,]
+testreal = Real_Estate[-index,]
 ```
-**Using the correlation coefficient matrix and the pair-wise matrix to check the linear relationship between the outcome variable and the independent variables.**
 
+## Methods
 
-```{r}
-trainreal<-Real_Estate[1:276,]
-testreal<-Real_Estate[277:414,]
-```
-**We use the first 2/3 of the dataset as the training data and the remaining 1/3 as the test dataset.**
-
-
-```{r}
-hist(Real_Estate$Age)
-hist(Real_Estate$Distance)
-
-hist(Real_Estate$Stores)
-hist(sqrt(Real_Estate$Stores))
-
-hist(Real_Estate$Date)
-hist(Real_Estate$Latitude)
-
-hist(log(Real_Estate$Longitude))
-hist(Real_Estate$Longitude)
-
-hist(Real_Estate$Price)
-hist(Real_Estate$Trans_Year)
-library(ggplot2)
-ggplot(Real_Estate,aes(x=Trans_Month))+
-  geom_bar()
-
-```
-**Based on the graph, we can see that other than Latitude and Price,all other predictors are clearly not normally distributed.Some transformation are necessary for future models.**
 ```{r}
 full_1 = lm(Price~.,data = trainreal)
 summary(full_1)
@@ -180,8 +182,8 @@ error_2
 
 ```{r}
 library(pls)
+creal = Real_Estate[,2:9]
 variable=creal[,-7]
-
 prseat<-prcomp(variable,scale=TRUE)
 summary(prseat)
 plot(prseat$sdev,type="l",ylab="SD of PC",xlab="PC number")
