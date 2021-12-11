@@ -83,11 +83,12 @@ testreal = Real_Estate[-index,]
 
 ## Methods
 
+### full_1, creat the simplist model with all variable considered
 ```{r}
 full_1 = lm(Price~.,data = trainreal)
 summary(full_1)
 ```
-
+#### Model diagonalstic for full_1
 ```{r}
 #plot(quant.mdist,sort(mdist)); abline(0,1)
 plot(cooks.distance(full_1))
@@ -112,18 +113,21 @@ drop1(full_2,test = 'F')
 ```
 **From this we can see that the Trans_month has the lowest F-value, also, it's a value derived from the transaction date. Thus we can remove it and form model_1.**
 
+### model_1, with 1/longitude transformation and exclude Trans_Month as a predictor
 ```{r}
 model_1 = lm(Price~Date+Age+Distance+Stores+Latitude+(1/(Longitude)), data=trainreal)
 summary(model_1)
 #From the summary, we can see that all predictors are statistically significant. We'll conduct model check.
 ```
+
+
+#### Model diagonalstic for model_1
 ```{r}
 plot(model_1)
 ```
 **From Residuals vs Fitted, it's flat, so we have a linear relationship here. Tho there are two small clusters, the overall residuals are roughly equal variance across the range, so the homoscedasticity assumption isn't violated. The sqrt of SR plot also supports this conclusion.**
 **The QQ plot looks pretty good for the first part, with many points derived from the end part, so residuals are not normally distributed.**
 **From the residual vs Leverage plot, we can see there is no high-influential points.**
-
 ```{r}
 shapiro.test(model_1$residuals)
 #Here, the p-value for the S-W test is way less than 0.05, so we can reject H0 that errors are uncorrelated, and see that the data isn't normally distributed.
@@ -138,24 +142,28 @@ durbinWatsonTest(model_1)
 step(model_1,data = Real_Estate, direction = 'both')
 #From the result, we'll select the one we the least AIC, which is the one using Price ~ Date + Age + Distance + Stores + Latitude + (1/(Longitude)). And this is the same as the model_1 we had previously
 ```
+
+### Normalize Real_Estate dataset
 ```{r}
 #Now we'll make a normalized data by centering and scaling the data.
 normalized_real = as.data.frame(scale(Real_Estate[1:7],center = TRUE, scale = TRUE))
 head(normalized_real,10)
 ```
 
+#### Create training and testing sets from the normalized Real_Estate dataset
 ```{r}
 normalized_trainreal<-normalized_real[1:276,]
 normalized_testreal<-normalized_real[277:414,]
 ```
 **We use the first 2/3 of the dataset as the training data and the remaining 1/3 as the test dataset.**
 
+### Model_2, re-fit model_1 with normalized dataset
 ```{r}
 #Re-fit the model_1 with the new data, and name it as model_2
 model_2 = lm(Price ~ Date + Age + Distance + Stores + Latitude + (1/(Longitude)),data = normalized_trainreal)
 summary(model_2)
 ```
-
+#### Model diagonalstic for model_2
 ```{r}
 #Now we'll use the same method to check the new model
 plot(model_2)
