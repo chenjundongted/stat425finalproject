@@ -189,6 +189,10 @@ result = rbind(result, r)
 result
 ```
 
+```{r regression diagnostics}
+
+```
+
 ### Multivariate Regression Splines Model
 
 ```{r}
