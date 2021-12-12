@@ -18,6 +18,9 @@ library(ggplot2)
 library(stringr)
 library(readxl)
 library(PerformanceAnalytics)
+library(faraway)
+library(earth)
+library(caret)
 set.seed(425)
 ```
 
@@ -40,37 +43,61 @@ real$Price <- real$Price*0.042*1/3/3*1000
 real <- real[,-c(1)]
 ```
 
-### Correlation
-
-```{r}
-round(cor(real[, -c(1)]),2)
-chart.Correlation(real, histogram = TRUE, pch = 10)
-```
-
-We notice that only variables `Latitude` and `Price` seem to follow a normal distribution and the highest correlation between individual predictor and response variable is -0.67.
-
 ## Data preprocessing
 
 ### New Variable `Trans_Year` and `Trans_Month`
+
 We create new column `Trans_Year` and `Trans_Month` with input value derived from the transaction date column, and use that as the 7th predictor. However, we notice an inconsistency between the data description and the actual calculation.
 ```{r}
 Real_Estate = real %>%
   mutate(Trans_Month = round((Date - floor(Date)), digits = 3)) %>%
-  mutate(Trans_Month = ifelse(Trans_Month == 0.000, "January",
-                       ifelse(Trans_Month == 0.083, "February",
-                       ifelse(Trans_Month == 0.167, "March",
-                       ifelse(Trans_Month == 0.250, "April",
-                       ifelse(Trans_Month == 0.333, "May",
-                       ifelse(Trans_Month == 0.417, "June",
-                       ifelse(Trans_Month == 0.500, "July",
-                       ifelse(Trans_Month == 0.583, "August",
-                       ifelse(Trans_Month == 0.667, "September",
-                       ifelse(Trans_Month == 0.750, "October",
-                       ifelse(Trans_Month == 0.833, "November",
-                       ifelse(Trans_Month == 0.917, "December",
+  mutate(Trans_Month = ifelse(Trans_Month == 0.000, "1",
+                       ifelse(Trans_Month == 0.083, "2",
+                       ifelse(Trans_Month == 0.167, "3",
+                       ifelse(Trans_Month == 0.250, "4",
+                       ifelse(Trans_Month == 0.333, "5",
+                       ifelse(Trans_Month == 0.417, "6",
+                       ifelse(Trans_Month == 0.500, "7",
+                       ifelse(Trans_Month == 0.583, "8",
+                       ifelse(Trans_Month == 0.667, "9",
+                       ifelse(Trans_Month == 0.750, "10",
+                       ifelse(Trans_Month == 0.833, "11",
+                       ifelse(Trans_Month == 0.917, "12",
                        Trans_Month))))))))))))) %>%
-  mutate(Trans_Year = floor(Date))
+  mutate(Trans_Year = floor(Date)) %>%
+  mutate(Date = NULL) %>%
+  mutate(Trans_Year = factor(Trans_Year)) %>%
+  mutate(Trans_Month = factor(Trans_Month)) %>%
+  mutate(Stores = as.integer(Stores))
 ```
+
+After creating new predictors `Trans_Year` and `Trans_Month` from predictor `Date`, we change all predictors' types to fit the model.Below is the summary of the final data we will use for fitting the model.
+```{r}
+Real_Estate
+```
+
+### Correlation
+
+```{r}
+cor(Real_Estate[, -c(7, 8)])
+round(cor(Real_Estate[, -c(7, 8)]))
+chart.Correlation(Real_Estate[, -c(7, 8)], histogram = TRUE, pch = 10)
+```
+
+We notice that only variables `Latitude` and `Price` seem to follow a normal distribution and the highest correlation between individual predictor and response variable is -0.81.
+
+
+### Collinearity
+
+```{r}
+g = lm(Price ~ ., data = Real_Estate[, -c(7, 8)])
+x = model.matrix(g)[,-1]
+x = x - matrix(apply(x, 2, mean), 414, 5, byrow=TRUE)
+x = x / matrix(apply(x, 2, sd), 414, 5, byrow=TRUE)
+round(sqrt(vif(x)), dig=2)
+```
+
+The standard errors for the coefs are all very small, so we confirm that there is no collinearity issue.
 
 ### Training-Testing Dataset
 
@@ -83,130 +110,115 @@ testreal = Real_Estate[-index,]
 
 ## Methods
 
-### full_1, creat the simplist model with all variable considered
+### Evalutation Metrics
 ```{r}
-full_1 = lm(Price~.,data = trainreal)
-summary(full_1)
-```
-#### Model diagonalstic for full_1
-```{r}
-#plot(quant.mdist,sort(mdist)); abline(0,1)
-plot(cooks.distance(full_1))
-#From the cook's distance and Mahalanobis distance, we can see there is no high-leverage points
+calc_training_rmse = function(model) {
+  sqrt(mean((resid(model) / (1 - hatvalues(model))) ^ 2))
+}
 
-```
-**Here we use the MASS package to estimate the covariance matrix, calculate the Mahalanobis distance to detect outliers, which pcr is very sensitive to.**
-**Use all remaining predictors with the training dataset, and name that model full_1.**
+calc_testing_rmse = function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2))
+}
 
+calc_testing_rsquared = function(actual, predicted) {
+  rss <- sum((predicted - actual) ^ 2)
+  tss <- sum((actual - mean(actual)) ^ 2)
+  rsq <- 1 - rss/tss
+}
 
-```{r}
-summary(full_1)$r.sq
-rmse<-function(x,y) sqrt(mean((x-y)^2))
-# RMSE for training set and testing set
-rmse(fitted(full_1), trainreal$Price)
-rmse(predict(full_1),testreal$Price)
-```
-**Based on the shape of the plot, we tried 1/Longitude as the transformation and form full_2.**
-```{r}
-full_2 = lm(Price~Date+Age+Distance+Stores+Latitude+(1/(Longitude))+Trans_Month, data=trainreal)
-drop1(full_2,test = 'F')
-```
-**From this we can see that the Trans_month has the lowest F-value, also, it's a value derived from the transaction date. Thus we can remove it and form model_1.**
-
-### model_1, with 1/longitude transformation and exclude Trans_Month as a predictor
-```{r}
-model_1 = lm(Price~Date+Age+Distance+Stores+Latitude+(1/(Longitude)), data=trainreal)
-summary(model_1)
-#From the summary, we can see that all predictors are statistically significant. We'll conduct model check.
+result = data.frame(matrix(ncol = 5, nrow = 0))
 ```
 
-
-#### Model diagonalstic for model_1
-```{r}
-plot(model_1)
-```
-**From Residuals vs Fitted, it's flat, so we have a linear relationship here. Tho there are two small clusters, the overall residuals are roughly equal variance across the range, so the homoscedasticity assumption isn't violated. The sqrt of SR plot also supports this conclusion.**
-**The QQ plot looks pretty good for the first part, with many points derived from the end part, so residuals are not normally distributed.**
-**From the residual vs Leverage plot, we can see there is no high-influential points.**
-```{r}
-shapiro.test(model_1$residuals)
-#Here, the p-value for the S-W test is way less than 0.05, so we can reject H0 that errors are uncorrelated, and see that the data isn't normally distributed.
-```
-```{r}
-library(car)
-durbinWatsonTest(model_1)
-#From DW test, we can see that p-value is 0.398 > 0.05. Thus, we failed to reject the H0 that there is no correlation among the residuals.
-```
-**Now, we'll try to use stepwise selection to find a better model.**
-```{r}
-step(model_1,data = Real_Estate, direction = 'both')
-#From the result, we'll select the one we the least AIC, which is the one using Price ~ Date + Age + Distance + Stores + Latitude + (1/(Longitude)). And this is the same as the model_1 we had previously
-```
-
-### Normalize Real_Estate dataset
-```{r}
-#Now we'll make a normalized data by centering and scaling the data.
-normalized_real = as.data.frame(scale(Real_Estate[1:7],center = TRUE, scale = TRUE))
-head(normalized_real,10)
-```
-
-#### Create training and testing sets from the normalized Real_Estate dataset
-```{r}
-normalized_trainreal<-normalized_real[1:276,]
-normalized_testreal<-normalized_real[277:414,]
-```
-**We use the first 2/3 of the dataset as the training data and the remaining 1/3 as the test dataset.**
-
-### Model_2, re-fit model_1 with normalized dataset
-```{r}
-#Re-fit the model_1 with the new data, and name it as model_2
-model_2 = lm(Price ~ Date + Age + Distance + Stores + Latitude + (1/(Longitude)),data = normalized_trainreal)
-summary(model_2)
-```
-#### Model diagonalstic for model_2
-```{r}
-#Now we'll use the same method to check the new model
-plot(model_2)
-#The conclusions from the plot is the same as before, there exists a linear relationship, homoscedasticity assumption is supported, residuals aren't normally distributed, and there is no high-influence points.
-shapiro.test(model_2$residuals)
-#P-value is 0.422 for Shapiro test, meaning we fail to reject the H0 that errors are uncorrelated
-durbinWatsonTest(model_2)
-#P-value is 0.422 for D-W test, meaning we fail to reject the H0 that there is no correlation among the residuals.
-```
-
+### Additive Model
 
 ```{r}
-prediction_1 = predict(model_1,testreal)
-error_1 = (mean(testreal$Price-prediction_1))^2
-error_1
-prediction_2 = predict(model_2,normalized_testreal)
-head(prediction_2)
-error_2 = (mean(normalized_testreal$Price-prediction_2))^2
-error_2
+additive_m = lm(Price ~ ., data = trainreal)
+summary(additive_m)
 ```
-```{r}
 
+From the table, the coefficient of predictor `Trans_Year2013` is NA, which means the variable is not linearly independent. Therefore, we remove this variable from the dataset and re-train the model.
+
+```{r}
+trainreal = trainreal[, -c(8)]
+testreal = testreal[, -c(8)]
+additive_m = lm(Price ~ ., data = trainreal)
+s = summary(additive_m)
+# Predict using testing data
+pred = predict(additive_m, testreal)
+r = c("Additive Model", round(calc_training_rmse(additive_m), 4), round(summary(additive_m)$r.squared, 4), round(calc_testing_rmse(testreal$Price, pred), 4), round(calc_testing_rsquared(testreal$Price, pred), 4))
+result = rbind(result, r)
+colnames(result) = c("Model", "TrainingRMSE", "Training R^2", "TestingRMSE", "Testing R^2")
+result
+```
+
+### AIC Selection Model
+
+```{r}
+AIC_m = step(additive_m, direction = "both", trace = 0)
+AIC_m
+```
+
+Using the AIC selection, we include the predictors `Age`, `Distance`, `Stores`, `Latitude`, and `Trans_Month` in our model.
+
+```{r}
+AIC_selection_m = lm(Price ~ Age + Distance + Stores + Latitude + Trans_Month, data = trainreal)
+s = summary(AIC_selection_m)
+# Predict using testing data
+pred = predict(AIC_selection_m, testreal)
+r = c("AIC Model", round(calc_training_rmse(AIC_selection_m), 4), round(summary(AIC_selection_m)$r.squared, 4), round(calc_testing_rmse(testreal$Price, pred), 4), round(calc_testing_rsquared(testreal$Price, pred), 4))
+result = rbind(result, r)
+result
+```
+
+### BIC Selection Model
+
+```{r}
+BIC_m = step(additive_m, direction = "both", k = log(length(resid(additive_m))), trace = 0)
+BIC_m
+```
+
+Using the BIC selection, we include the predictors `Age`, `Distance`, `Stores`, and `Latitude` in our model.
+
+```{r}
+BIC_selection_m = lm(Price ~ Age + Distance + Stores + Latitude, data = trainreal)
+s = summary(BIC_selection_m)
+# Predict using testing data
+pred = predict(BIC_selection_m, testreal)
+r = c("BIC Model", round(calc_training_rmse(BIC_selection_m), 4), round(summary(BIC_selection_m)$r.squared, 4), round(calc_testing_rmse(testreal$Price, pred), 4), round(calc_testing_rsquared(testreal$Price, pred), 4))
+result = rbind(result, r)
+result
+```
+
+### Multivariate Regression Splines Model
+
+```{r}
+hyper_grid <- expand.grid(degree = 1:3, 
+                          nprune = seq(2, 50, length.out = 10) %>%
+                            floor())
+```
+
+```{r, message=F, warning=F}
+cv_mars <- train(
+  x = subset(trainreal, select = -c(Price)),
+  y = trainreal$Price,
+  method = "earth",
+  metric = "RMSE",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneGrid = hyper_grid, )
 ```
 
 ```{r}
-library(pls)
-creal = Real_Estate[,2:9]
-variable=creal[,-7]
-prseat<-prcomp(variable,scale=TRUE)
-summary(prseat)
-plot(prseat$sdev,type="l",ylab="SD of PC",xlab="PC number")
-round(prseat$rot[,1],2)
-round(prseat$rot[,2],2)
-round(prseat$rot[,3],2)
-round(prseat$rot[,4],2)
-round(prseat$rot[,5],2)
-pcr1<-pcr(Price~.,data=normalized_trainreal)
-pcrpred1pos<-predict(pcr1,normalized_trainreal,ncomp=5)
-head(pcrpred1pos)
-
-MSE_testingPCR=mean((normalized_testreal$Price - pcrpred1pos) ^ 2)
-MSE_test_original=mean((normalized_testreal$Price - predict(model_2, normalized_testreal)) ^ 2)
-MSE_testingPCR
-MSE_test_original
+final = cv_mars$results %>%
+  filter(nprune == cv_mars$bestTune$nprune, degree == cv_mars$bestTune$degree)
+final
+r = c("Splines Model", round(final[, 3], 4), round(final[, 4], 4))
+ggplot(cv_mars)
 ```
 
+```{r}
+# predict with testing data
+pred = predict(cv_mars, testreal)
+r = c(r, round(calc_testing_rmse(testreal$Price, pred), 4), round(calc_testing_rsquared(testreal$Price, pred), 4))
+result = rbind(result, r)
+result
+```
