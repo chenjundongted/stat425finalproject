@@ -190,16 +190,27 @@ result = rbind(result, r)
 result
 ```
 
-```{r regression diagnostics}
+### BIC Normalized Model
+```{r}
+normalized_real = as.data.frame(scale(Real_Estate[, -c(7, 8)],center = TRUE, scale = TRUE))
+trainreal_norm = normalized_real[index,]
+testreal_norm = normalized_real[-index,]
 
+BIC_selection_normalized_m = lm(Price ~ Age + Distance + Stores + Latitude, data = trainreal_norm)
+s = summary(BIC_selection_normalized_m)
+# Predict using testing data
+pred = predict(BIC_selection_normalized_m, testreal_norm)
+r = c("BIC Normalized Model", round(calc_training_rmse(BIC_selection_normalized_m), 4), round(summary(BIC_selection_normalized_m)$r.squared, 4), round(calc_testing_rmse(testreal_norm$Price, pred), 4), round(calc_testing_rsquared(testreal_norm$Price, pred), 4))
+result = rbind(result, r)
+result
+plot(BIC_selection_normalized_m)
 ```
 
 ### Multivariate Regression Splines Model
 
 ```{r}
-hyper_grid <- expand.grid(degree = 1:3, 
-                          nprune = seq(2, 50, length.out = 10) %>%
-                            floor())
+hyper_grid <- expand.grid(degree = 1:3, nprune = seq(2, 50, length.out = 10) %>%
+                           floor())
 ```
 
 ```{r, message=F, warning=F}
@@ -238,12 +249,12 @@ validationplot(pcr_m, val.type = "RMSEP")
 validationplot(pcr_m, val.type = "R2")
 ```
 
-From the cross validation result, the RMSE will be the smallest and the R^2 will be the largest when the number of components is 5.
+From the cross validation result, the RMSE will be close to the smallest value and the R^2 will be close to the largest when the number of components is 4.
 
 ```{r}
 # Predict the testing data
-train_pred = predict(pcr_m, trainreal, ncomp = 5)
-test_pred = predict(pcr_m, testreal, ncomp = 5)
+train_pred = predict(pcr_m, trainreal, ncomp = 4)
+test_pred = predict(pcr_m, testreal, ncomp = 4)
 r = c("PCR Model", round(calc_testing_rmse(trainreal$Price, train_pred), 4), round(calc_testing_rsquared(trainreal$Price, train_pred), 4), round(calc_testing_rmse(testreal$Price, test_pred), 4), round(calc_testing_rsquared(testreal$Price, test_pred), 4))
 result = rbind(result, r)
 result
