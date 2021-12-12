@@ -482,6 +482,13 @@ result</code></pre>
 {"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["TrainingRMSE"],"name":[2],"type":["chr"],"align":["left"]},{"label":["Training R^2"],"name":[3],"type":["chr"],"align":["left"]},{"label":["TestingRMSE"],"name":[4],"type":["chr"],"align":["left"]},{"label":["Testing R^2"],"name":[5],"type":["chr"],"align":["left"]}],"data":[{"1":"Additive Model","2":"42.8896","3":"0.5911","4":"42.0548","5":"0.5569"},{"1":"AIC Model","2":"42.7367","3":"0.5906","4":"41.9726","5":"0.5586"},{"1":"BIC Model","2":"42.7345","3":"0.5556","4":"41.0896","5":"0.577"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
+<pre class="r"><code>shapiro.test(BIC_m$residuals)</code></pre>
+<pre><code>## 
+##  Shapiro-Wilk normality test
+## 
+## data:  BIC_m$residuals
+## W = 0.84181, p-value &lt; 2.2e-16</code></pre>
+<p>Here, the p-value for the S-W test is way less than 0.05, so we can reject H0 that errors are uncorrelated, and see that the data isn’t normally distributed.</p>
 </div>
 <div id="bic-normalized-model" class="section level3">
 <h3>BIC Normalized Model</h3>

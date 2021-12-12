@@ -190,6 +190,11 @@ result = rbind(result, r)
 result
 ```
 
+```{r}
+shapiro.test(BIC_m$residuals)
+```
+Here, the p-value for the S-W test is way less than 0.05, so we can reject H0 that errors are uncorrelated, and see that the data isn't normally distributed.
+
 ### BIC Normalized Model
 ```{r}
 normalized_real = as.data.frame(scale(Real_Estate[, -c(7, 8)],center = TRUE, scale = TRUE))
