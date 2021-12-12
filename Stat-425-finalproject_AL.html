@@ -482,6 +482,13 @@ result</code></pre>
 {"columns":[{"label":["Model"],"name":[1],"type":["chr"],"align":["left"]},{"label":["TrainingRMSE"],"name":[2],"type":["chr"],"align":["left"]},{"label":["Training R^2"],"name":[3],"type":["chr"],"align":["left"]},{"label":["TestingRMSE"],"name":[4],"type":["chr"],"align":["left"]},{"label":["Testing R^2"],"name":[5],"type":["chr"],"align":["left"]}],"data":[{"1":"Additive Model","2":"42.8896","3":"0.5911","4":"42.0548","5":"0.5569"},{"1":"AIC Model","2":"42.7367","3":"0.5906","4":"41.9726","5":"0.5586"},{"1":"BIC Model","2":"42.7345","3":"0.5556","4":"41.0896","5":"0.577"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
+<pre class="r"><code>anova(BIC_m, additive_m)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Res.Df"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["RSS"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["Df"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Sum of Sq"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["F"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["Pr(>F)"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"284","2":"507636.0","3":"NA","4":"NA","5":"NA","6":"NA","_rn_":"1"},{"1":"272","2":"467144.9","3":"12","4":"40491.11","5":"1.964698","6":"0.0275478","_rn_":"2"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<p>The p-value is less than 0.05. Therefore, we conclude that the BIC_m model performs better than the additive_m model. We use the BIC_m to test on the normalized data and make model assumption check.</p>
 <pre class="r"><code>shapiro.test(BIC_m$residuals)</code></pre>
 <pre><code>## 
 ##  Shapiro-Wilk normality test

@@ -191,6 +191,12 @@ result
 ```
 
 ```{r}
+anova(BIC_m, additive_m)
+```
+
+The p-value is less than 0.05. Therefore, we conclude that the BIC_m model performs better than the additive_m model. We use the BIC_m to test on the normalized data and make model assumption check.
+
+```{r}
 shapiro.test(BIC_m$residuals)
 ```
 Here, the p-value for the S-W test is way less than 0.05, so we can reject H0 that errors are uncorrelated, and see that the data isn't normally distributed.
